@@ -1,258 +1,241 @@
+# jam-etl Telemetry for Dune + BigQuery
 
-# Substrate ETL
+jam-etl transforms raw JAM telemetry `.log` files into JSONL files compatible with Dune Analytics ingestion and Google BigQuery ingestion.
 
+This is a Proof of Concept right now, based on JAM DUNA's tinytestnet data.  
 
-Using Substrate ETL, users can query [Polkadot](/polkadot) and [Kusama](/kusama) networks for
-large scale analysis data of blocks, extrinsics, calls, events, balances, and transfers.  Substrate ETL relies on Colorful Notion's [Polkaholic.io indexing](https://github.com/colorfulnotion/polkaholic/) of Polkadot + Kusama networks into public Google BigQuery datasets (one dataset for each relay chain).
+## 📁 Directory Structure
 
-As of September 2023, substrate-etl datasets are now in Google's BigQuery Public Datasets: `bigquery-public-data.crypto_polkadot` and `bigquery-public-data.crypto_kusama`! See announcements from [Google Cloud Web3](https://cloud.google.com/blog/products/data-analytics/data-for-11-more-blockchains-in-bigquery-public-datasets) + [Parity](https://twitter.com/Polkadot/status/1707052392712212676)
-
-NEW: As part of OpenGov #366, Colorful Notion is integrating Polkadot data (relay chain, system chains and all known parachains as of January 2024) with Dune. If you are interested in long-term support for your parachain, please email michael@colorfulnotion.com.
-
-### Quick Start: Analytics Hub
-
-You can add these datasets to your Google Cloud project with the following Analytics Hub links:
-* [crypto_polkadot on Analytics Hub](https://console.cloud.google.com/bigquery/analytics-hub/exchanges/projects/974572213039/locations/us/dataExchanges/polkadot_18bca7589e7/listings/polkadot_and_polkadot_parachains_18bca877a0a)
-* [crypto_kusama on Analytics Hub](https://console.cloud.google.com/bigquery/analytics-hub/exchanges/projects/974572213039/locations/us/dataExchanges/polkadot_18bca7589e7/listings/kusama_and_kusama_parachains_18bca8f79fb)
-
-When you add your project, you will get a Google Cloud assigned project ID (e.g. bumbleholt_14234) and will be able to get _linked datasets_ to the `crypto_polkadot` and `crypto_kusama` datasets -- use this ID in place of the `bigquery-public-data` below.
-
-### Quick Start: BigQuery Public Datasets
-
-`bigquery-public-data` is a public project within BigQuery which anyone can access.  You see hundreds of BigQuery tables in the public `crypto_polkadot` and `crypto_kusama` datasets.  Just open the query editor and try some of the queries below:
-
-_See all available tables/views via AAA_tableschema_ ([Schema](#AAA_tableschemajson))
-```bash
-select * from `bigquery-public-data.crypto_polkadot.AAA_tableschema`
 ```
-_See all available tables/views of paraid 2000_
-```bash
-select * from `bigquery-public-data.crypto_polkadot.AAA_tableschema` where table_id like '%2000'
+.
+├── logs/              # RAW .log files (each representing ~1 minute of telemetry of multiple msg types)
+├── dune_exports/      # Output JSONL files, one per table -- this goes into Dune
+├── schema/            # BigQuery table schema -- used to set up BQ tables and ingest into them
+├── jam-to-bigquery.js
+├── jam-to-dune.js
+└── README.md
 ```
 
-_Get blocks of paraid 2000_ ([Schema](#blocksjson)):
+## 📦 Dune JAM Tables 
+
+| Table               | msg_type | Description                                      |
+|---------------------|----------|--------------------------------------------------|
+| `blocks`            | 128      | Block headers and extrinsics metadata            |
+| `validatorstatistics`| 13      | Per-validator block stats                        |
+| `corestatistics`    | 13       | Per-core statistics                              |
+| `servicestatistics` | 13       | Per-service processing metrics                   |
+| `workreports`       | 255      | Work package execution outcomes                  |
+| `preimages`         | 142      | Preimages submitted for service execution        |
+| `assurances`        | 141      | Validator assurances attached to blocks          |
+| `tickets`           | 131      | Validator-generated tickets for work eligibility |
+| `workpackages`      | 0        | Work items submitted for execution               |
+| `services`          | 143      | Registered service metadata                      |
+| `segments`          | 3        | Segment payloads from the erasure-coded DAG      |
+
+
+
+All tables contain common fields:
+
+- `time`
+- `team`
+- `sender_id`
+- `elapsed`
+- `codec_encoded` (raw binary for audit)
+
+## ✅ Requirements
+
+- Node.js v16+
+- Input `.log` files in `./data/`, each being line-delimited JSON
+
+
+## 🧠 Dune Ingestion
+
+### `jam-to-dune.js`
+
+Reads logs and exports telemetry to `dune_exports/*.jsonl`:
+
+
+This will:
+
+1. Read all `.log` files in `./logs`, in sorted order.
+2. Parse each line as a JAM telemetry blob.
+3. Dispatch to the appropriate handler based on `msg_type`.
+4. Append one row per record to the appropriate table in `dune_exports/`.
+
+
+Run with:
+
 ```bash
-select * from `bigquery-public-data.crypto_polkadot.blocks2000` where DATE(block_time) >= "2024-03-01" and DATE(block_time) <= "2024-03-31"
+node jam-to-dune.js
+
+# View exported files
+ls dune_exports/*.jsonl
 ```
 
-_Get extrinsics of paraid 2000_ ([Schema](#extrinsicsjson)):
+The generated `.jsonl` files can be ingested into Dune via their ingestion pipelines or manually uploaded via the Dune UI or API.
+
+## BigQuery Ingestion
+
+Each message is parsed based on its `msg_type` and streamed into one of **11 BigQuery tables** within the `crypto_jam` dataset:
+
+| Message Type | Table Name            | Description                           |
+|--------------|-----------------------|---------------------------------------|
+| 128          | `blocks`              | Full block header + extrinsics        |
+| 13           | `validatorstatistics`, `corestatistics`, `servicestatistics` | Breakdown of Statistics         |
+| 255          | `workreports`         | Results of refinement/guaranteeing               |
+| 142          | `preimages`           | Preimages                |
+| 141          | `assurances`          | Validator assurances        |
+| 131          | `tickets`             | Tickets submitted              |
+| 0            | `workpackages`        | Raw work packages  |
+| 143          | `services`            | New services created from bootstrap services       |
+| 3            | `segments`            | D3L Segments exported       |
+
+## jam-to-bigquery.js Script
+
+To stream data into Bigquery:
+
 ```bash
-select * from `bigquery-public-data.crypto_polkadot.extrinsics2000` where DATE(block_time) >= "2024-03-01" and DATE(block_time) <= "2024-03-31"
+node jam-to-bigquery.js [filename]
 ```
 
-_Get calls of paraid 2000_ ([Schema](#callsjson)):
+This will:
+- Read `.log` files from `./logs/`
+- Parse each line into structured output
+- Stream data to Bigquery 
+
+## Creating BigQuery Tables
+
+Use the following CLI commands (requires `bq` CLI configured):
+
 ```bash
-select * from `bigquery-public-data.crypto_polkadot.calls2000` where DATE(block_time) >= "2024-03-01" and DATE(block_time) <= "2024-03-31"
+bq mk --table crypto_jam.blocks blocks.json
+bq mk --table crypto_jam.validatorstatistics validatorstatistics.json
+bq mk --table crypto_jam.corestatistics corestatistics.json
+bq mk --table crypto_jam.servicestatistics servicestatistics.json
+bq mk --table crypto_jam.workreports workreports.json
+bq mk --table crypto_jam.preimages preimages.json
+bq mk --table crypto_jam.assurances assurances.json
+bq mk --table crypto_jam.tickets tickets.json
+bq mk --table crypto_jam.workpackages workpackages.json
+bq mk --table crypto_jam.services services.json
+bq mk --table crypto_jam.segments segments.json
 ```
 
-Schemas for several of the most common source tables are listed below -- a full list of schemas can be found [here](/schema) with further details below.
+Each JSON schema file corresponds to a table with the same name.
 
-### Public Datasets in BigQuery
+## Supplying data to Telemetry
 
-Substrate data for each chain is held in 9 tables in one of 2 public
-datasets, with one dataset for each relay chain and all its
-parachains.  By convention, relaychain data is considered "paraid=0".
+Our implementation of the telemetry server is basically nothing but syslog-ng:
 
-Project: (Location: US)
-* `bigquery-public-data`
+```
+@version: 3.27
+@include "scl.conf"
 
-Datasets:
-* `crypto_polkadot`
-* `crypto_kusama`
+# systemctl restart syslog-ng.service
 
-Tables: (replace `{paraID}` with a specific para ID, e.g. `2000` for `acala`)
+# global options.
+options { chain_hostnames(off); flush_lines(0); use_dns(yes); use_fqdn(no);
+	  dns_cache(yes); owner("root"); group("adm"); perm(0640);
+	  stats_freq(0); keep_hostname(yes); log_fifo_size(100000);
+	  log_msg_size(25000000); # Support 12MB wps, preimages.
+};
 
-* _Blocks_: `bigquery-public-data.crypto_${relayChain}.blocks${paraID}` (date-partitioned by `block_time`) - [Schema](/schema/blocks.json)
-* _Extrinsics_: `bigquery-public-data.crypto_${relayChain}.extrinsics${paraID}` (date-partitioned by `block_time`) - [Schema](/schema/extrinsics.json)
-* _Calls_: `bigquery-public-data.crypto_${relayChain}.calls${paraID}` (date-partitioned by `block_time`) - [Schema](/schema/calls.json)
-* _Events_: `bigquery-public-data.crypto_${relayChain}.events${paraID}` (date-partitioned by `block_time`) - [Schema](/schema/events.json)
-* _Transfers_: `bigquery-public-data.crypto_${relayChain}.transfers${paraID}` (date-partitioned by `block_time`) - [Schema](/schema/transfers.json)
-* _Balances_: `bigquery-public-data.crypto_${relayChain}.balances${paraID}` (date-partitioned by `ts`) - [Schema](/schema/balances.json)
-
-Thus [polkadot](/polkadot/0-polkadot) relay chain blocks are held in `bigquery-public-data.crypto_polkadot.blocks0`, [acala](/polkadot/2000-polkadot) blocks are stored in `bigquery-public-data.crypto_polkadot.blocks2000`, and similarly for any chain / table name.  
-
-See [Definitions](/DEFINITIONS.md) for how the tables are constructed and tentative definitions.
-
-Every chain has a auto generated README with the chains tables explicitly enumerated, and includes sample queries.
-
-Notes:
-* All tables are date-partitioned to support low cost, high speed scans.
-* If a parachain has a renewal, the first paraid assigned is used for subsequent renewals.
-
-### AAA_tableschema.json
-See:
-* [AAA_tableschema.json BigQuery schema](https://github.com/colorfulnotion/substrate-etl/tree/main/schema/AAA_tableschema.json)
-
-Field                   | BigQuery Type             |
------------------------ |---------------------------|
-table_id                | STRING  |
-time_partitioning_field | STRING  |
-table_cols              | STRING	REPEATED  |
-table_schema            | INTEGER |
-
-*For a quick overview of the available tables/views within the dataset, please query AAA_tableschema view*
+source s_network {
+    tcp(ip(0.0.0.0) port(5000) keep_hostname(yes) use-dns(yes)); 
+};
+destination d_logs {
+    file("/var/log/jam/${YEAR}/${MONTH}/${DAY}/${HOUR}${MIN}.log" template("${MESSAGE}\n") create-dirs(yes));
+};
+filter f_jamduna { match("^jamtart" value("PROGRAM")); };
+log {
+  source(s_network);
+  filter(f_jamduna);
+  destination(d_logs);
+};
+```
 
 
-### blocks.json
+## Ready to Send Telemetry Data?
 
-See:
-* [blocks.json BigQuery schema](https://github.com/colorfulnotion/substrate-etl/tree/main/schema/blocks.json)
+```go
+package main
 
-Field               | Type            | BigQuery Type             |
---------------------|-----------------|---------------------------|
-hash                | hex_string      | STRING                    |
-parent_hash         | hex_string      | STRING |
-number              | bigint          | INTEGER |
-state_root          | hex_string      | STRING |
-extrinsics_root     | hex_string      | STRING |
-block_time          | bigint          | TIMESTAMP   |
-author_ss58         | string          | STRING |
-author_pub_key         | string          | STRING |
-spec_version        | bigint          | INTEGER |
-relay_block_number  | bigint          | INTEGER |
-relay_state_root    | hex_string      | STRING |
-extrinsic_count     | bigint          | INTEGER |
-event_count         | bigint          | INTEGER |
-transfer_count      | bigint          | INTEGER |
+import (
+	"log"
+	"log/syslog"
+)
+// TODO: put the JSON envelope here 
 
-### extrinsics.json
+func main() {
+	// Establish a connection to the remote syslog server over TCP
+	writer, err := syslog.Dial("tcp", "TODO.jamduna.org:5000", syslog.LOG_INFO|syslog.LOG_USER, "jamtart")
+	if err != nil {
+		log.Fatalf("Failed to connect to syslog server: %v", err)
+	}
+	defer writer.Close()
 
-See:
-* [extrinsics.json BigQuery schema](https://github.com/colorfulnotion/substrate-etl/tree/main/schema/extrinsics.json)
+	// Send an informational log message
+	err = writer.Info("Telemetry event: workpackage submitted")
+	if err != nil {
+		log.Printf("Syslog write error: %v", err)
+	}
+}
+```
 
-Field                   | Type                  | BigQuery Type |
-------------------------|-----------------------|---------|
-hash                    | hex_string            | STRING |
-extrinsic_id            | string                | STRING |
-block_time              | bigint                | TIMESTAMP |
-block_number            | bigint                | INTEGER |
-block_hash              | hex_string            | STRING |
-lifetime                | JSON                  | JSON |
-section                 | string                | STRING |
-method                  | string                | STRING |
-params                  | JSON                  | JSON |
-fee                     | bigint                | INTEGER |
-weight                  | bigint                | INTEGER |
-signed                  | boolean               | BOOLEAN |
-signer_ss58             | string                | STRING |
-signer_pub_key          | hex_string            | STRING |
+### Rust 
 
-### events.json
+```toml
+[dependencies]
+syslog = "6.0"
+```
 
-* [events.json BigQuery Schema](https://github.com/colorfulnotion/substrate-etl/tree/main/schema/events.json)
+```rust
+use syslog::{Facility, Formatter3164};
 
-Field                   | Type                  | BigQuery  Type                 |
-------------------------|-----------------------|---------|
-event_id                | string                | STRING  |
-section                 | string                | STRING  |
-method                  | string                | STRING  |
-data                    | JSON                  | JSON    |
-extrinsic_id            | string                | STRING  |
-extrinsic_hash          | hex_string            | STRING  |
-block_time              | bigint                | TIMESTAMP |
-block_number            | bigint                | INTEGER                  |
-block_hash              | hex_string            | STRING |
+fn main() {
+    // Define syslog configuration
+    let formatter = Formatter3164 {
+        facility: Facility::LOG_USER,
+        hostname: None,
+        process: "jamtart".into(),
+        pid: 0,
+    };
 
-### transfers.json
+    // TODO: put the JSON envelope here 
 
-* [transfers.json BigQuery schema](https://github.com/colorfulnotion/substrate-etl/tree/main/schema/transfers.json)
+    // Connect to the syslog server (TCP with rfc5424 format)
+    match syslog::tcp(formatter, "tbd.jamduna.org:5000") {
+        Err(e) => eprintln!("Failed to connect to syslog: {}", e),
+        Ok(mut logger) => {
+            if let Err(e) = logger.info("Telemetry event: workpackage submitted") {
+                eprintln!("Failed to send syslog message: {}", e);
+            }
+        }
+    }
+}
+```
 
-Field                   | Type                  | BigQuery Type       |
-------------------------|-----------------------|-------------------------------|
-event_id                | string                | STRING |
-section                 | string                | STRING |
-method                  | string                | STRING |
-data                    | JSON                  | JSON |
-extrinsic_id            | string                | STRING |
-extrinsic_hash          | hex_string            | STRING |
-block_time              | bigint                | TIMESTAMP |
-block_number            | bigint                | INTEGER |
-block_hash              | hex_string            | STRING |
-from_ss58               | string                | STRING |
-to_ss58                 | string                | STRING |
-from_pub_key            | string                | STRING |
-to_pub_key              | string                | STRING |
-asset                   | string                | STRING |
-price_usd               | float                 | FLOAT64 |
-amount_usd              | float                 | FLOAT64 |
-symbol                  | string                | STRING  |
-decimals                | int8                  | INTEGER |
-amount                  | float                 | FLOAT64 |
-raw_amount              | bigint                | INTEGER |
+# JAM Implementer Leaderboard
 
-### balances.json
+To get on the [Dune JAM Implementer leaderboard](https://dune.com/substrate/jamtestnet) use the following endpoint:
 
-* [balances.json BigQuery Schema](https://github.com/colorfulnotion/substrate-etl/tree/main/schema/balances.json)
+* JAM DUNA Endpoint: TBD (use tbd.jamduna.org as a placeholder for now)
 
-Field                   | Type                  | BigQuery Type         |
-------------------------|-----------------------|-----------------------|
-symbol                  | string                | STRING                |
-address_ss58            | string                | STRING                |
-address_pubkey          | string                | STRING                |
-ts                      | bigint                | TIMESTAMP             |
-id                      | string                | STRING  |
-chain_name              | string                | STRING  |
-para_id                 | int                   | INTEGER |
-free                    | bigint                | FLOAT |
-free_usd                | float                 | FLOAT |
-reserved                | float                 | FLOAT |
-reserved_usd            | float                 | FLOAT |
-misc_frozen             | float                 | FLOAT |
-misc_frozen_usd         | float                 | FLOAT |
-frozen                  | float                 | FLOAT |
-frozen_usd              | float                 | FLOAT |
+Each implementation should follow this:
 
-### Reporting / Missing data
-
-Generally the data is complete as can be, but the sole data source is the Polkaholic.io indexer.  
-
-From this single source, the primary causes of missing data stem from:
-* Chains that do not provide a public RPC node.  Most of the time, these chains are new with very little actual activity.  
-* Chains that have a public RPC node, but no RPC Endpoint is an _archive_ nodes
-* Chains that are being onboarded
-* Some blocks fail decoding due to chain halting, or are missing an up-to-date node.js API package for type definitions.
-
-A daily/hourly github actions process summarizes the state of the index for:
-* [polkadot](/polkadot)
-* [kusama](/kusama)
-
-and for every single chain that is being indexed.  See the report **Issues** column for chains with systemic issues or blocks that are missing.  Generally the last 24 hrs have blocks that are missing that are filled in by the end of the day.
-
-Included in each summary are sample queries and a complete breakdown.  Chain data is appended daily.
-
-### Design choices:
-
-* All temporal BigQuery datasets are date-partitioned and split into multiple tables by {paraId} to enable low-cost low-latency BigQuery scans for specific date, parachain combinations. Timestamped data use BigQuery TIMESTAMP date types.
-* Addresses are provided in “public key” (signer_pub_key) and SS58 Address (signer_ss58) form to support multi-chain queries with wild card table selection eg`select * from polkadot.extrinsics* where signer_pub_key='<pubkey>' ` aggregates multi-chain transactional history for a given account.
-* When assets are mentioned (eg transfers), we "decimalize" the output and include basic USD price valuation if possible.  Many assets are not valued with USD values in this way.
-
-### Roadmap
-
-Spring/Summer 2023
-* [x] Initial table designs {blocks, extrinsics, events, trasnfers, balances, xcmTransfers}
-* [x] Daily/hourly dump via [Github workflow](https://github.com/colorfulnotion/substrate-etl/actions)
-* [x] Hourly summary [report](SUMMARY) for all reachable parachains
-* [x] GKE systematization, Reliability Improvements
-* [x] Integration with [XCM Global-Asset Registry](https://github.com/colorfulnotion/xcm-global-registry) repo
-
-Fall/Winter 2023
-* [x] Basic WASM contract support (psp22, events, bytecode) using ChainIDE integration (ink!ubator)
-* [x] Deep Account Analytics: Staking + Democracy + _Relay Chain_ Trace Support (supported by Web3F)
-* [x] Dune PoC
-
-Winter 2024
-
-* [x] Dune Integration of Relay Chain  
-
-Spring 2024
-
-* [ ] Dune Integration of All Polkadot Parachains
-* [ ] EVM Support within Dune
+* `sender_id` - use the dev public keys (see [key](./key)) for now.  A more sophisticated scheme
+* `team` - use the name you supplied in [clients](https://jamcha.in/clients)
+* `elapsed` - measured in microseconds: (1s = 1000000 microseconds)
+   - blocks (128), statistics (13): microseconds taken to make a block and compute the new state root, which includes all ordered accumulation
+   - workreports (255): microseconds taken to refine a work packages.  No communications
+   - assurances (141): time to assure the data, from the moment a new block is known to the time when a CE141 is submitted 
+   - tickets (131): time to generate the ticket.  No communications.
+   - preimages (142): zero for now.
+   - workpackages (0): zero for now
+   - services (143): zero for now
+   - segments (3): zero for now
 
 
-Your feedback and your ideas are important -- please [submit an issue](https://github.com/colorfulnotion/substrate-etl/issues) or reach out to us on Telegram (@sourabhniyogi) or [Matrix](https://matrix.to/#/#polkaholic:matrix.org).
+Find us on the [JAM DAO Discord](https://discord.com/invite/aGUV82SP) in #implementers or #tinytestnets (100% public, note: all communications will be archived) to start sending some telemetry data. 
 
-### Contributions
 
-Contributions are welcome.  Contributors will be invited to a
-dedicated Telegram group and are held to the [Polkadot communities' Code of Conduct](https://github.com/paritytech/polkadot/blob/master/CODE_OF_CONDUCT.md).

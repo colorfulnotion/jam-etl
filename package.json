@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "@google-cloud/bigquery": "^6.0.3",
-    "commander": "^9.4.1"
+    "@google-cloud/bigquery": "^7.9.4"
   }
 }
