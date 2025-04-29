@@ -18,21 +18,19 @@ This is a Proof of Concept right now, based on JAM DUNA's tinytestnet data.
 
 ## 📦 Dune JAM Tables 
 
-| Table               | msg_type | Description                                      |
-|---------------------|----------|--------------------------------------------------|
-| `blocks`            | 128      | Block headers and extrinsics metadata            |
-| `validatorstatistics`| 13      | Per-validator block stats                        |
-| `corestatistics`    | 13       | Per-core statistics                              |
-| `servicestatistics` | 13       | Per-service processing metrics                   |
-| `workreports`       | 255      | Work package execution outcomes                  |
-| `preimages`         | 142      | Preimages submitted for service execution        |
-| `assurances`        | 141      | Validator assurances attached to blocks          |
-| `tickets`           | 131      | Validator-generated tickets for work eligibility |
-| `workpackages`      | 0        | Work items submitted for execution               |
-| `services`          | 143      | Registered service metadata                      |
-| `segments`          | 3        | Segment payloads from the erasure-coded DAG      |
-
-
+| Table               | msg_type | Description                                      | Elapsed | Samples |
+|---------------------|----------|--------------------------------------------------|---------|---------|
+| `blocks`            | 128      | Block headers and extrinsics metadata            | author time | [Sample](./samples/blocks-128.json) |
+| `validatorstatistics`| 13      | Per-validator block stats                        | - | [Sample](./samples/statistics-13.json) |
+| `corestatistics`    | 13       | Per-core statistics                              | - | [Sample](./samples/statistics-13.json) |
+| `servicestatistics` | 13       | Per-service processing metrics                   | - | [Sample](./samples/statistics-13.json) |
+| `workreports`       | 255      | Work report generation (both refining and auditing, role)   | refining+audit time | [Sample](./samples/workreports-255.json) | 
+| `preimages`         | 142      | Preimages submitted     | -  | [Sample](./samples/preimages-142.json) |
+| `assurances`        | 141      | Validator assurances    | assurance time |[Sample](./samples/assurances-141.json) |
+| `tickets`           | 131      | Validator-generated tickets | generation time |  [Sample](./samples/tickets-131.json) | 
+| `workpackages`      | 133      | Work package bundles  | - | [Sample](./samples/workpackagebundles-133.json) |
+| `services`          | 143      | Registered service metadata                      | - | [Sample](./samples/services-143.json) | 
+| `segments`          | 135        | Segment payloads from the erasure-coded DAG      | - | [Sample](./samples/segments-135.json) |
 
 All tables contain common fields:
 

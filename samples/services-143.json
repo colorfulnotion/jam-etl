@@ -1,0 +1,16 @@
+{
+  "time": "2025-04-29T00:44:06.305821954Z",
+  "team": "A-go-cn",
+  "sender_id": "0x3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+  "msg_type": "143",
+  "json_encoded": {
+    "service_index": 1533641205,
+    "code_hash": "0xa18af0aa48826a057fef7d79c4046575648210790fc436baf77bf1d1c9dc63aa",
+    "balance": 508476,
+    "min_item_gas": 100,
+    "min_memo_gas": 100,
+    "code_size": 8356,
+    "items": 2
+  },
+  "codec_encoded": "0xf581695ba18af0aa48826a057fef7d79c4046575648210790fc436baf77bf1d1c9dc63aa3cc207000000000064000000000000006400000000000000a42000000000000002000000010100010001a18af0aa48826a057fef7d79c4046575648210790fc436baf77bf1d1c9dc63aa000001532000000000"
+}
