@@ -1,0 +1,58 @@
+{
+  "time": "2025-04-29T00:41:02.750440276Z",
+  "team": "A-go-cn",
+  "sender_id": "0x3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+  "msg_type": "133",
+  "json_encoded": {
+    "work_package": {
+      "authorization": "0x3078",
+      "auth_code_host": 0,
+      "authorizer": {
+        "code_hash": "0xc16326432b5b3213dfd1609495e13c6b276cb474d679645337e5c2c09f19b53c",
+        "params": "0x"
+      },
+      "context": {
+        "anchor": "0xf12157435f78dcf7eb26000b68982be8556c99bc3b7fa1aa64a1ee942c3ead71",
+        "state_root": "0xcad6f9a9b0b95b714d691897d82a2dcebc84197e609dc87b59a8d8645cb47b42",
+        "beefy_root": "0xf4fcf883ad08b6bb97a54a48e13ab996c7a45b4ee0a5772f1d1f20c24280b880",
+        "lookup_anchor": "0x36029b4a4c53abb8f19aa32d81d863dd8bc7a8cebbfc9353418d2a23901c7cb0",
+        "lookup_anchor_slot": 1692399,
+        "prerequisites": [
+          "0x0a42400be819101efb95dd87ae4cb9a7c6d955e60e8f862b3bcd9443663b9fa6"
+        ]
+      },
+      "items": [
+        {
+          "service": 3215780978,
+          "code_hash": "0x8b8602abfc89f7fef0d0c390b33519c11e6823ccfe53ba80aa8026d1ffb3ad04",
+          "payload": "0xec70ca7ea5000413",
+          "refine_gas_limit": 1000,
+          "accumulate_gas_limit": 100000,
+          "import_segments": null,
+          "extrinsic": null,
+          "export_count": 0
+        },
+        {
+          "service": 2051963229,
+          "code_hash": "0x9b98339fb45b259bd22431edf8f371ed2d9bfdbcdbd0fcd91488b37166696e05",
+          "payload": "0x",
+          "refine_gas_limit": 5678,
+          "accumulate_gas_limit": 9876,
+          "import_segments": null,
+          "extrinsic": null,
+          "export_count": 0
+        }
+      ]
+    },
+    "extrinsics": [],
+    "import_segments": [
+      [],
+      []
+    ],
+    "justifications": [
+      [],
+      []
+    ]
+  },
+  "codec_encoded": "0x02307800000000c16326432b5b3213dfd1609495e13c6b276cb474d679645337e5c2c09f19b53c00f12157435f78dcf7eb26000b68982be8556c99bc3b7fa1aa64a1ee942c3ead71cad6f9a9b0b95b714d691897d82a2dcebc84197e609dc87b59a8d8645cb47b42f4fcf883ad08b6bb97a54a48e13ab996c7a45b4ee0a5772f1d1f20c24280b88036029b4a4c53abb8f19aa32d81d863dd8bc7a8cebbfc9353418d2a23901c7cb0efd21900010a42400be819101efb95dd87ae4cb9a7c6d955e60e8f862b3bcd9443663b9fa60272ecacbf8b8602abfc89f7fef0d0c390b33519c11e6823ccfe53ba80aa8026d1ffb3ad0408ec70ca7ea5000413e803000000000000a086010000000000000000005d794e7a9b98339fb45b259bd22431edf8f371ed2d9bfdbcdbd0fcd91488b37166696e05002e1600000000000094260000000000000000000000020000020000"
+}

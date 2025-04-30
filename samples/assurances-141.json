@@ -1,0 +1,14 @@
+{
+  "time": "2025-04-29T00:49:42.392650512Z",
+  "team": "A-go-cn",
+  "sender_id": "0xe68e0cf7f26c59f963b5846202d2327cc8bc0c4eff8cb9abd4012f9a71decf00",
+  "msg_type": "141",
+  "json_encoded": {
+    "anchor": "0xea06a04c00c197a6beed0fe1d93d68b36ac44b3d0a278b2035a2f54195f1351d",
+    "bitfield": "0x01",
+    "validator_index": 2,
+    "signature": "0x5999661953b3b2ed19b7583ea2719e946d1afd1eaab25a308e7c3035458616c2b74df4fd4131132b2cabaa30fbb8965f439cfd1067509988c704479664905a0c"
+  },
+  "elapsed": 2748,
+  "codec_encoded": "0xea06a04c00c197a6beed0fe1d93d68b36ac44b3d0a278b2035a2f54195f1351d0102005999661953b3b2ed19b7583ea2719e946d1afd1eaab25a308e7c3035458616c2b74df4fd4131132b2cabaa30fbb8965f439cfd1067509988c704479664905a0c"
+}
